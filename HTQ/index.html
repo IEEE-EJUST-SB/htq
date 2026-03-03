@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTQ — IEEE EJUST CS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">HTQ <span>/ <a href="https://studentbranches.ieee.org/eg-ejust-cs/" target="_blank"
+          rel="noopener noreferrer">IEEE EJUST CS</a></span></div>
+    <nav><a href="register.html">Register</a></nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="badge">Cybersecurity &amp; Competitive Programming</div>
+      <h1 class="title">HTQ <em>2026</em></h1>
+      <p class="tagline">
+        HTQ is a dual-track competition spanning cybersecurity and competitive programming,
+        organized by IEEE EJUST CS.
+      </p>
+      <a href="register.html" class="cta-button">Register Now</a>
+    </section>
+
+    <div class="card-row">
+      <div class="card">
+        <div class="card-label">Date</div>
+        <div class="card-value">24 / 4 / 2026</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Location</div>
+        <div class="card-value">EJUST HQ</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Tracks</div>
+        <div class="card-value">2 Tracks</div>
+      </div>
+    </div>
+
+    <section class="about">
+      <div class="about-heading">About</div>
+      <div class="about-body">
+        <strong>HTQ</strong> brings together students and professionals to compete across
+        <strong>cybersecurity</strong> and <strong>competitive programming</strong> disciplines.
+        The competition is proudly organized by <strong>IEEE EJUST Computer Science</strong> chapter.
+      </div>
+    </section>
+
+    <section class="partners">
+      <div class="partners-grid">
+        <div class="partner-item">IEEE EJUST</div>
+        <div class="partner-item">IEEE RAS EJUST</div>
+        <div class="partner-item">IEEE WIE EJUST</div>
+        <div class="partner-item">IEEE IAS EJUST</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Copyright &copy; 2026 IEEE EJUST CS</p>
+    <p>HTQ &mdash; All rights reserved</p>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mouse-x', `${x}px`);
+        card.style.setProperty('--mouse-y', `${y}px`);
+      });
+    });
+  </script>
+
+</body>
+
+</html>

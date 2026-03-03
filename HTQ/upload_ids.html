@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload IDs — HTQ 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <header>
+        <div class="logo"><a href="index.html" style="text-decoration: none; color: inherit;">HTQ</a> <span>/ <a
+                    href="https://studentbranches.ieee.org/eg-ejust-cs/" target="_blank" rel="noopener noreferrer">IEEE
+                    EJUST CS</a></span></div>
+        <nav><a href="index.html">Back to Home</a></nav>
+    </header>
+
+    <main>
+        <div class="form-container">
+            <div class="form-header">
+                <a href="index.html" class="back-link">← Return Home</a>
+                <h2>Registration Completion</h2>
+                <p>Add National IDs for all members and upload the payment receipt.</p>
+            </div>
+
+            <form id="uploadForm" novalidate>
+                <div class="form-group">
+                    <label for="teamSize">Number of Team Members</label>
+                    <select id="teamSize" name="teamSize" required>
+                        <option value="3">3 Members</option>
+                        <option value="4">4 Members</option>
+                        <option value="5">5 Members</option>
+                        <option value="6">6 Members</option>
+                    </select>
+                </div>
+
+                <div id="memberFields">
+                </div>
+
+                <div class="form-group">
+                    <label for="paymentReceipt">Upload Payment Receipt / Screenshot</label>
+                    <input type="file" id="paymentReceipt" name="paymentReceipt" accept="image/*" required />
+                    <p class="file-hint">Upload a screenshot or photo of your payment receipt</p>
+                    <div id="paymentPreviewContainer" class="image-preview-grid"></div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <p>Copyright &copy; 2026 IEEE EJUST CS</p>
+        <p>HTQ &mdash; All rights reserved</p>
+    </footer>
+
+    <script>
+        const teamSizeSelect = document.getElementById('teamSize');
+        const memberFields = document.getElementById('memberFields');
+        const paymentInput = document.getElementById('paymentReceipt');
+        const paymentPreview = document.getElementById('paymentPreviewContainer');
+
+        function renderDynamicFields() {
+            const size = parseInt(teamSizeSelect.value);
+            memberFields.innerHTML = '';
+            for (let i = 1; i <= size; i++) {
+                const nameGroup = document.createElement('div');
+                nameGroup.className = 'form-group';
+                nameGroup.innerHTML = `
+                    <label for="memberName${i}">Member #${i} — Full Name</label>
+                    <input type="text" id="memberName${i}" name="memberName${i}" placeholder="Enter Full Name" required />
+                `;
+                memberFields.appendChild(nameGroup);
+
+                const idGroup = document.createElement('div');
+                idGroup.className = 'form-group';
+                idGroup.innerHTML = `
+                    <label for="nationalId${i}">Member #${i} — National ID Number</label>
+                    <input type="text" id="nationalId${i}" name="nationalId${i}" placeholder="Enter National ID" required />
+                `;
+                memberFields.appendChild(idGroup);
+            }
+        }
+
+        teamSizeSelect.addEventListener('change', renderDynamicFields);
+        renderDynamicFields();
+
+        paymentInput.addEventListener('change', function () {
+            paymentPreview.innerHTML = '';
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const item = document.createElement('div');
+                    item.className = 'preview-item';
+                    item.innerHTML = `
+                        <img src="${e.target.result}">
+                        <div class="preview-label">Receipt</div>
+                    `;
+                    paymentPreview.appendChild(item);
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        function showFancyError(message, element) {
+            const error = document.createElement('div');
+            error.className = 'fancy-error';
+            error.innerText = message;
+            document.body.appendChild(error);
+            setTimeout(() => error.remove(), 4000);
+
+            if (element) {
+                const group = element.closest('.form-group');
+                group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                group.classList.remove('error-highlight');
+                void group.offsetWidth;
+                group.classList.add('error-highlight');
+            }
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const allDynamicInputs = memberFields.querySelectorAll('input[required]');
+            for (let field of allDynamicInputs) {
+                if (!field.value.trim()) {
+                    const label = field.closest('.form-group').querySelector('label').innerText;
+                    showFancyError(`Field Required: ${label}`, field);
+                    return;
+                }
+            }
+
+            if (!paymentInput.files || paymentInput.files.length === 0) {
+                showFancyError('Payment receipt is required!', paymentInput);
+                return;
+            }
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Transmitting...';
+            btn.style.opacity = '0.7';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                alert('Uploaded Successfully!');
+                btn.innerText = originalText;
+                btn.style.opacity = '1';
+                btn.disabled = false;
+                this.reset();
+                paymentPreview.innerHTML = '';
+                renderDynamicFields();
+            }, 1500);
+        });
+    </script>
+
+</body>
+
+</html>
