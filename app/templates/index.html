@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTFd & DOMjudge Bridge Admin</title>
+    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura-dark.css" type="text/css">
+    <style>
+        body { padding: 20px; }
+        .container { max-width: 1200px; margin: auto; }
+        nav button { margin-right: 10px; padding: 10px 15px; cursor: pointer; }
+        .tab-content { border: 1px solid #ccc; padding: 20px; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        .hidden { display: none; }
+        .error-msg { color: #e74c3c; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CTFd & DOMjudge Bridge Admin</h1>
+
+        <nav>
+            <button onclick="showTab('ctfd-challenges-tab')">CTFd Challenges</button>
+            <button onclick="showTab('ctfd-teams-tab')">CTFd Teams</button>
+            <button onclick="showTab('ctfd-submissions-tab')">CTFd Submissions</button>
+            <button onclick="showTab('domjudge-tab')">DOMjudge</button>
+        </nav>
+
+        <div id="ctfd-challenges-tab" class="tab-content">
+            <h2>CTFd Challenges</h2>
+            <p id="ctfd-challenges-error" class="error-msg hidden"></p>
+            <table id="ctfd-challenges-table"><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Points</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <div id="ctfd-teams-tab" class="tab-content hidden">
+            <h2>CTFd Teams</h2>
+            <p id="ctfd-teams-error" class="error-msg hidden"></p>
+            <table id="ctfd-teams-table"><thead><tr><th>ID</th><th>Name</th><th>Affiliation</th><th>Score</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <div id="ctfd-submissions-tab" class="tab-content hidden">
+            <h2>CTFd Submissions</h2>
+            <div>
+                Challenge ID: <input type="number" id="ctfd-submission-challenge-id" placeholder="challenge_id">
+                User ID: <input type="number" id="ctfd-submission-user-id" placeholder="user_id">
+                Team ID: <input type="number" id="ctfd-submission-team-id" placeholder="team_id">
+                Type: <input type="text" id="ctfd-submission-type" placeholder="correct|incorrect">
+                <button onclick="loadCtfdSubmissions()">Filter</button>
+            </div>
+            <p id="ctfd-submissions-error" class="error-msg hidden"></p>
+            <table id="ctfd-submissions-table"><thead><tr><th>ID</th><th>Type</th><th>Challenge</th><th>Team</th><th>Date</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <div id="domjudge-tab" class="tab-content hidden">
+            <h2>DOMjudge Contests</h2>
+            <select id="domjudge-contests-select" onchange="loadDomjudgeContestDetails()"></select>
+
+            <h3 id="domjudge-contest-name"></h3>
+            
+            <h4>Problems</h4>
+            <table id="domjudge-problems-table"><thead><tr><th>ID</th><th>Short Name</th><th>Title</th></tr></thead><tbody></tbody></table>
+
+            <h4>Teams in Contest</h4>
+            <table id="domjudge-contest-teams-table"><thead><tr><th>ID</th><th>Name</th><th>Category</th></tr></thead><tbody></tbody></table>
+
+            <h4>Submissions in Contest</h4>
+            <div>
+                Problem ID: <input type="text" id="domjudge-submission-problem-id" placeholder="e.g. A">
+                Team ID: <input type="text" id="domjudge-submission-team-id" placeholder="team_id">
+                <button onclick="loadDomjudgeContestDetails()">Filter</button>
+            </div>
+            <p id="domjudge-error" class="error-msg hidden"></p>
+            <table id="domjudge-submissions-table"><thead><tr><th>ID</th><th>Team</th><th>Problem</th><th>Result</th><th>Date</th></tr></thead><tbody></tbody></table>
+        </div>
+
+    </div>
+
+    <script>
+        let currentTab = 'ctfd-challenges-tab';
+
+        function showTab(tabId) {
+            document.getElementById(currentTab).classList.add('hidden');
+            document.getElementById(tabId).classList.remove('hidden');
+            currentTab = tabId;
+
+            // Load data when tab is shown
+            if (tabId === 'ctfd-challenges-tab') loadCtfdChallenges();
+            else if (tabId === 'ctfd-teams-tab') loadCtfdTeams();
+            else if (tabId === 'ctfd-submissions-tab') loadCtfdSubmissions();
+            else if (tabId === 'domjudge-tab') loadDomjudgeContests();
+        }
+
+        async function loadCtfdChallenges() {
+            const errEl = document.getElementById('ctfd-challenges-error');
+            try {
+                const response = await fetch('/api/ctfd/challenges');
+                const data = await response.json();
+                if (!response.ok) {
+                    errEl.textContent = data.error || data.detail || `Error ${response.status}`;
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                errEl.classList.add('hidden');
+                const items = Array.isArray(data) ? data : (data.data || []);
+                const tbody = document.getElementById('ctfd-challenges-table').getElementsByTagName('tbody')[0];
+                tbody.innerHTML = '';
+                items.forEach(challenge => {
+                    const row = tbody.insertRow();
+                    row.insertCell().textContent = challenge.id ?? '';
+                    row.insertCell().textContent = challenge.name ?? '';
+                    row.insertCell().textContent = challenge.category ?? '';
+                    row.insertCell().textContent = challenge.value ?? '';
+                });
+            } catch (e) {
+                errEl.textContent = e.message || 'Failed to load challenges';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function loadCtfdTeams() {
+            const errEl = document.getElementById('ctfd-teams-error');
+            try {
+                const response = await fetch('/api/ctfd/teams?view=admin');
+                const data = await response.json();
+                if (!response.ok) {
+                    errEl.textContent = data.error || data.detail || `Error ${response.status}`;
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                errEl.classList.add('hidden');
+                const items = Array.isArray(data) ? data : (data.data || []);
+                const tbody = document.getElementById('ctfd-teams-table').getElementsByTagName('tbody')[0];
+                tbody.innerHTML = '';
+                items.forEach(team => {
+                    const row = tbody.insertRow();
+                    row.insertCell().textContent = team.id ?? '';
+                    row.insertCell().textContent = team.name ?? '';
+                    row.insertCell().textContent = team.affiliation ?? '';
+                    row.insertCell().textContent = team.score ?? '';
+                });
+            } catch (e) {
+                errEl.textContent = e.message || 'Failed to load teams';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function loadCtfdSubmissions() {
+            const challengeId = document.getElementById('ctfd-submission-challenge-id').value;
+            const userId = document.getElementById('ctfd-submission-user-id').value;
+            const teamId = document.getElementById('ctfd-submission-team-id').value;
+            const type = document.getElementById('ctfd-submission-type').value;
+            const params = new URLSearchParams();
+            if (challengeId) params.append('challenge_id', challengeId);
+            if (userId) params.append('user_id', userId);
+            if (teamId) params.append('team_id', teamId);
+            if (type) params.append('type', type);
+            const url = '/api/ctfd/submissions' + (params.toString() ? '?' + params.toString() : '');
+
+            const errEl = document.getElementById('ctfd-submissions-error');
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (!response.ok) {
+                    errEl.textContent = data.error || data.detail || `Error ${response.status}`;
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                errEl.classList.add('hidden');
+                const items = Array.isArray(data) ? data : (data.data || []);
+                const tbody = document.getElementById('ctfd-submissions-table').getElementsByTagName('tbody')[0];
+                tbody.innerHTML = '';
+                items.forEach(submission => {
+                    const row = tbody.insertRow();
+                    row.insertCell().textContent = submission.id ?? '';
+                    row.insertCell().textContent = submission.type ?? '';
+                    row.insertCell().textContent = submission.challenge?.name ?? 'N/A';
+                    row.insertCell().textContent = submission.team?.name ?? 'N/A';
+                    row.insertCell().textContent = submission.date ? new Date(submission.date).toLocaleString() : '';
+                });
+            } catch (e) {
+                errEl.textContent = e.message || 'Failed to load submissions';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function loadDomjudgeContests() {
+            const errEl = document.getElementById('domjudge-error');
+            try {
+                const response = await fetch('/api/domjudge/contests');
+                const data = await response.json();
+                if (!response.ok) {
+                    errEl.textContent = data.error || data.detail || `Error ${response.status}`;
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                errEl.classList.add('hidden');
+                const contests = Array.isArray(data) ? data : (data.data || data);
+                const select = document.getElementById('domjudge-contests-select');
+                select.innerHTML = '<option value="">Select a Contest</option>';
+                contests.forEach(contest => {
+                    const option = document.createElement('option');
+                    option.value = contest.id;
+                    option.textContent = `${contest.id} - ${contest.name || contest.shortname || ''}`;
+                    select.appendChild(option);
+                });
+                if (contests.length > 0) {
+                    select.value = contests[0].id;
+                    loadDomjudgeContestDetails();
+                }
+            } catch (e) {
+                errEl.textContent = e.message || 'Failed to load contests';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function loadDomjudgeContestDetails() {
+            const contestId = document.getElementById('domjudge-contests-select').value;
+            const errEl = document.getElementById('domjudge-error');
+            if (!contestId) return;
+
+            const selectElement = document.getElementById('domjudge-contests-select');
+            document.getElementById('domjudge-contest-name').textContent = `Contest: ${selectElement.options[selectElement.selectedIndex].text}`;
+
+            const problemId = document.getElementById('domjudge-submission-problem-id')?.value;
+            const teamId = document.getElementById('domjudge-submission-team-id')?.value;
+            const subParams = new URLSearchParams();
+            if (problemId) subParams.append('problem_id', problemId);
+            if (teamId) subParams.append('team_id', teamId);
+            const subUrl = `/api/domjudge/contests/${contestId}/submissions` + (subParams.toString() ? '?' + subParams.toString() : '');
+
+            try {
+                errEl.classList.add('hidden');
+                const [problemsRes, teamsRes, submissionsRes] = await Promise.all([
+                    fetch(`/api/domjudge/contests/${contestId}/problems`),
+                    fetch('/api/domjudge/teams'),
+                    fetch(subUrl)
+                ]);
+
+                const problems = await problemsRes.json();
+                const problemsTbody = document.getElementById('domjudge-problems-table').getElementsByTagName('tbody')[0];
+                problemsTbody.innerHTML = '';
+                const problemsList = Array.isArray(problems) ? problems : (problems.data || []);
+                problemsList.forEach(problem => {
+                    const row = problemsTbody.insertRow();
+                    row.insertCell().textContent = problem.id ?? '';
+                    row.insertCell().textContent = problem.shortname ?? '';
+                    row.insertCell().textContent = problem.name ?? '';
+                });
+
+                const allTeams = await teamsRes.json();
+                const teamsList = Array.isArray(allTeams) ? allTeams : (allTeams.data || allTeams);
+                const teamsTbody = document.getElementById('domjudge-contest-teams-table').getElementsByTagName('tbody')[0];
+                teamsTbody.innerHTML = '';
+                teamsList.forEach(team => {
+                    const row = teamsTbody.insertRow();
+                    row.insertCell().textContent = team.id ?? '';
+                    row.insertCell().textContent = team.name ?? '';
+                    row.insertCell().textContent = team.categoryid ?? team.category?.name ?? '';
+                });
+
+                const submissions = await submissionsRes.json();
+                const submissionsTbody = document.getElementById('domjudge-submissions-table').getElementsByTagName('tbody')[0];
+                submissionsTbody.innerHTML = '';
+                const subsList = Array.isArray(submissions) ? submissions : (submissions.data || []);
+                subsList.forEach(sub => {
+                    const row = submissionsTbody.insertRow();
+                    row.insertCell().textContent = sub.id ?? '';
+                    row.insertCell().textContent = sub.team_id ?? sub.teamid ?? '';
+                    row.insertCell().textContent = sub.problem_id ?? sub.problemid ?? '';
+                    row.insertCell().textContent = sub.result ?? sub.judgement_type ?? '';
+                    const time = sub.time ?? sub.contest_time;
+                    row.insertCell().textContent = time != null ? new Date(time * 1000).toLocaleString() : '';
+                });
+            } catch (e) {
+                errEl.textContent = e.message || 'Failed to load contest details';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        // Initialize default tab on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            showTab(currentTab);
+        });
+    </script>
+</body>
+</html>
