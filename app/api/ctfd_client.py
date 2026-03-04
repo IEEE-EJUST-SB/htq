@@ -20,7 +20,9 @@ class CTFdClient:
     def _get(self, endpoint: str, params=None):
         """GET request. Returns raw JSON. Raises on HTTP errors."""
         url = f"{self.base_url}/{endpoint}"
-        response = requests.get(url, headers=self._headers(), params=params or {})
+        params = params.copy() if params else {}
+        params["view"] = "admin"
+        response = requests.get(url, headers=self._headers(), params=params)
         response.raise_for_status()
         return response.json()
 
