@@ -11,6 +11,7 @@ from app.api.ctfd_client import CTFdClient
 from app.api.domjudge_client import DOMjudgeClient
 from app.db.database import get_db, engine, Base
 from app.db import models
+from change_team_category import change_team_category
 
 Base.metadata.create_all(bind=engine)
 
@@ -267,7 +268,8 @@ def run_sync(db: Session = Depends(get_db)):
 
         # Skip already processed submissions
         if db.query(models.Enrollment).filter(
-            models.Enrollment.ctfd_submission_id == sub_id
+            models.Enrollment.ctfd_submission_id == sub_id,
+            models.Enrollment.status == "success"  # Only skip if previous attempt was successful
         ).first():
             continue
 
@@ -286,18 +288,14 @@ def run_sync(db: Session = Depends(get_db)):
         status = "success"
         error_msg = None
         try:
-            domjudge_client.add_team_to_contest(
-                problem_link.domjudge_contest_id,
-                team_link.domjudge_team_id,
-                team_name=team_link.domjudge_team_name
-            )
-        except requests.exceptions.HTTPError as exc:
-            # 409 means team is already in the contest — treat as success
-            if exc.response is not None and exc.response.status_code == 409:
-                status = "already_enrolled"
-            else:
+            # Instead of adding team to contest via API, we change its category directly via DB/Docker
+            success, err = change_team_category(team_link.domjudge_team_id, 2)
+            if not success:
                 status = "error"
-                error_msg = f"HTTP {exc.response.status_code if exc.response is not None else '?'}: {exc}"
+                error_msg = err
+            else:
+                status = "success"
+
         except Exception as exc:
             status = "error"
             error_msg = str(exc)
