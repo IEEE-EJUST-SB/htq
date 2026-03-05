@@ -1,0 +1,42 @@
+services:
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    command: --max-allowed-packet=128M
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpw
+      - MYSQL_USER=domjudge
+      - MYSQL_PASSWORD=djpw
+      - MYSQL_DATABASE=domjudge
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  domserver:
+    image: domjudge/domserver:latest
+    container_name: domserver
+    ports:
+      - "80:80"
+    environment:
+      - MYSQL_HOST=mariadb
+      - MYSQL_USER=domjudge
+      - MYSQL_PASSWORD=djpw
+      - MYSQL_DATABASE=domjudge
+      - MYSQL_ROOT_PASSWORD=rootpw
+    depends_on:
+
+      - mariadb
+
+  judgehost:
+    image: domjudge/judgehost:latest
+    container_name: judgehost
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    environment:
+      - DOMSERVER_BASEURL=http://domserver/
+      - JUDGEDAEMON_PASSWORD=mypassword
+    depends_on:
+      - domserver
+
+volumes:
+  mariadb-data:
