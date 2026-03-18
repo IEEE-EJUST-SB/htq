@@ -5,8 +5,10 @@ from app.config import settings
 
 SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 
+_sqlite = "sqlite" in SQLALCHEMY_DATABASE_URL.lower()
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={} if "sqlite" in SQLALCHEMY_DATABASE_URL else {}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False} if _sqlite else {},
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

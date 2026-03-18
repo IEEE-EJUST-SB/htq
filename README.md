@@ -39,6 +39,85 @@ DOMJUDGE_PASS=your_password
 DATABASE_URL=sqlite:///./bridge.db
 ```
 
+## Docker
+
+The bridge can run in a container. It still needs the **host Docker socket** so it can `docker exec` into the DOMjudge **MariaDB** container (expected name: `mariadb`).
+
+1. Copy `env.example` to `.env` and set URLs so the container can reach CTFd and DOMjudge on your machine (defaults use `host.docker.internal`).
+2. Build and run:
+   ```bash
+   docker compose up -d --build
+   ```
+3. Open **http://localhost:5000** (change host port with `BRIDGE_PORT` in `.env` if needed).
+
+SQLite data is stored in the `htq_data` volume (`/data/bridge.db` inside the container).
+
+**Security:** Mounting `/var/run/docker.sock` gives the bridge container the same power as the Docker daemon on the host—use only in trusted environments.
+
+### CTFd and DOMjudge in separate containers (same machine)
+
+Containers talk to each other by **Docker network DNS** (service/container name), not `localhost`.
+
+1. **Create a shared network** (once):  
+   `docker network create ctf-stack`
+2. **Attach** the CTFd container, DOMjudge web container, and the bridge to that network:
+   - In each project’s `docker-compose.yml`, attach services to the shared network, e.g.:
+     ```yaml
+     services:
+       ctfd:
+         networks: [default, ctf-stack]
+       # ... same for domjudge web + bridge via docker-compose.attach.yml
+     networks:
+       ctf-stack:
+         external: true
+         name: ctf-stack
+     ```
+   - Or after containers exist:  
+     `docker network connect ctf-stack <container_name>` for each.
+3. In **`.env`**, set URLs using **internal** hostnames and ports, e.g.  
+   `CTFD_API_URL=http://ctfd:8000/api/v1`  
+   `DOMJUDGE_API_URL=http://domserver:80/api/v4`  
+   (use your real service names and ports from `docker compose ps` / their compose files.)
+4. Set **`SHARED_DOCKER_NETWORK=ctf-stack`** in `.env`.
+5. Start the bridge with the attach override:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.attach.yml up -d --build
+   ```
+
+The MariaDB container for DOMjudge must still be named **`mariadb`** (or update `change_team_category.py`) for category sync.
+
+### Run on AWS EC2
+
+Use this when CTFd, DOMjudge (with a Docker container named **`mariadb`**), and the bridge all run on the **same** EC2 instance—so the bridge can reach APIs on the host and use the Docker socket.
+
+1. **Launch an instance** (e.g. Ubuntu 22.04), with enough RAM for your stack.
+2. **Security group**: allow **SSH (22)** from your IP, and **TCP 5000** from where you need the UI (your IP, VPN, or `0.0.0.0/0` only if you accept the risk).
+3. **SSH in** and install Docker (includes Compose V2):
+   ```bash
+   curl -fsSL https://get.docker.com | sudo sh
+   sudo usermod -aG docker $USER
+   ```
+   Log out and SSH back in so your user can run `docker` without `sudo`.
+4. **Deploy the bridge**:
+   ```bash
+   git clone <your-repo-url> htq && cd htq
+   cp env.example .env
+   nano .env   # set CTFD_API_TOKEN, DOMJUDGE_PASS, and URLs (see below)
+   docker compose up -d --build
+   ```
+5. **Open the UI**: `http://<EC2_PUBLIC_IP>:5000`
+
+**URLs in `.env` on EC2**
+
+- If CTFd and DOMjudge are exposed on **this same server** (ports 8000 and 80), defaults in `env.example` (`host.docker.internal`) work with `extra_hosts` in Compose.
+- If CTFd or DOMjudge are **elsewhere**, set full URLs, e.g. `CTFD_API_URL=https://ctf.yourdomain.com/api/v1`.
+
+**Production tips**
+
+- Put **nginx** (or ALB) in front with HTTPS and proxy to `127.0.0.1:5000` instead of exposing 5000 to the internet.
+- Restrict security group **5000** to known IPs, or close it and only access via SSH tunnel:  
+  `ssh -L 5000:127.0.0.1:5000 ubuntu@<EC2_IP>` then open `http://localhost:5000`.
+
 ## How It Works
 
 The DOMjudge scoreboard proxy accepts optional `?sortorder=` (the UI uses `sortorder=1`).  

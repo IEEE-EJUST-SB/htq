@@ -1,0 +1,16 @@
+# Use when CTFd and DOMjudge run in OTHER containers on this machine.
+# 1. Put all containers on one user-defined network (see env.example).
+# 2. Set SHARED_DOCKER_NETWORK and API URLs in .env (container names as hosts).
+# 3. Run:
+#    docker compose -f docker-compose.yml -f docker-compose.attach.yml up -d --build
+
+services:
+  bridge:
+    networks:
+      - default
+      - platform
+
+networks:
+  platform:
+    external: true
+    name: ${SHARED_DOCKER_NETWORK}
