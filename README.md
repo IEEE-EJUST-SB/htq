@@ -23,6 +23,9 @@ The enrollment is performed by changing the team's category in the DOMjudge data
 4. **Open the Admin UI**:
    Visit [http://localhost:5000](http://localhost:5000).
 
+**CTFd and DOMjudge in Docker on the same machine (bridge on the host with uvicorn)**  
+This is a common working layout: run the bridge with **uvicorn** on the host, CTFd and DOMjudge in separate containers with ports published (**8000** and **80**). In `.env` use **`http://localhost:8000/api/v1`** and **`http://localhost/api/v4`** — the host reaches the containers via those mapped ports. The Docker socket on the host still sees the **`mariadb`** container for team category sync.
+
 ## Configuration
 
 The server defaults to:
@@ -39,9 +42,31 @@ DOMJUDGE_PASS=your_password
 DATABASE_URL=sqlite:///./bridge.db
 ```
 
+### Fixing `401 Unauthorized`
+
+| Error URL contains | Fix |
+|--------------------|-----|
+| `/api/v1` (CTFd) | Set **`CTFD_API_TOKEN`** in `.env` to an **admin** API token from CTFd (Profile → **Access Tokens**, generate with write/admin access). |
+| `/api/v4` (DOMjudge) | Set **`DOMJUDGE_USER`** / **`DOMJUDGE_PASS`** to the same credentials as the DOMjudge **web login**. |
+
+Then restart: `docker compose up -d` (or restart `uvicorn`).  
+Test DOMjudge: `curl -u admin:YOURPASS -s -o /dev/null -w "%{http_code}\n" http://localhost/api/v4/contests` → should be **200**.
+
+The admin page includes **Open CTFd** and **Open DOMjudge** links. With CTFd/DOMjudge in **other containers** on the same machine, API URLs often use `host.docker.internal` or a Compose service name; those links default to **`http://localhost:8000`** and **`http://localhost`** (published ports). Override with **`CTFD_UI_URL`** / **`DOMJUDGE_UI_URL`** if you use another host (e.g. a server IP or HTTPS).
+
 ## Docker
 
 The bridge can run in a container. It still needs the **host Docker socket** so it can `docker exec` into the DOMjudge **MariaDB** container (expected name: `mariadb`).
+
+### uvicorn works but Docker doesn’t (connection / timeout / 401)
+
+Inside a container, **`localhost` is not your laptop** — it’s the bridge container. If `.env` has `CTFD_API_URL=http://localhost:8000/...` for uvicorn, **do not expect that to work in Docker.**
+
+`docker-compose.yml` therefore sets API URLs to **`http://host.docker.internal:8000`** and **`http://host.docker.internal`** by default (needs Docker 20.10+ on Linux with `extra_hosts: host-gateway`). Tokens and passwords still come from `.env` (`CTFD_API_TOKEN`, `DOMJUDGE_PASS`).
+
+If the bridge joins the same Compose network as CTFd/DOMjudge, set in `.env`:
+
+`BRIDGE_CTFD_API_URL=http://ctfd:8000/api/v1` and `BRIDGE_DOMJUDGE_API_URL=http://domserver/api/v4` (adjust service names).
 
 1. Copy `env.example` to `.env` and set URLs so the container can reach CTFd and DOMjudge on your machine (defaults use `host.docker.internal`).
 2. Build and run:

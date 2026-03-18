@@ -9,6 +9,7 @@ import requests
 
 from app.api.ctfd_client import CTFdClient
 from app.api.domjudge_client import DOMjudgeClient
+from app.config import settings
 from app.db.database import get_db, engine, Base, migrate_problem_links_target_category
 from app.db import models
 from change_team_category import change_team_category
@@ -29,10 +30,22 @@ domjudge_client = DOMjudgeClient()
 
 @app.exception_handler(requests.exceptions.HTTPError)
 async def http_error_handler(request: Request, exc: requests.exceptions.HTTPError):
-    return JSONResponse(
-        status_code=exc.response.status_code,
-        content={"error": str(exc), "detail": exc.response.text},
-    )
+    content: dict = {"error": str(exc), "detail": (exc.response.text or "")[:2000]}
+    if exc.response.status_code == 401:
+        req = getattr(exc.response, "request", None)
+        url = str(req.url) if req else ""
+        if "/api/v1" in url:
+            content["hint"] = (
+                "CTFd rejected the API token. In CTFd (admin): Profile → Access Tokens "
+                "(or Config → Settings → Tokens), create a token with admin scope. "
+                "Put it in .env as CTFD_API_TOKEN=ctfd_... and restart the bridge."
+            )
+        elif "/api/v4" in url:
+            content["hint"] = (
+                "DOMjudge rejected login. Set DOMJUDGE_USER and DOMJUDGE_PASS in .env to the "
+                "same username/password as the DOMjudge web UI (usually admin). Restart the bridge."
+            )
+    return JSONResponse(status_code=exc.response.status_code, content=content)
 
 
 @app.exception_handler(requests.exceptions.ConnectionError)
@@ -73,7 +86,14 @@ class ProblemLinkCreate(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "ctfd_ui_url": settings.CTFD_UI_URL,
+            "domjudge_ui_url": settings.DOMJUDGE_UI_URL,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

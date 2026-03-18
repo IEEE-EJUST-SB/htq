@@ -30,11 +30,29 @@
         .muted { opacity: 0.85; font-size: 0.9em; margin: 0 0 10px 0; }
         h3 { margin-top: 1.25rem; }
         .domjudge-sb-table { margin-bottom: 8px; }
+        .platform-links {
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            margin: 0 0 16px 0; padding: 10px 14px;
+            background: rgba(126, 200, 227, 0.08); border: 1px solid #555; border-radius: 6px;
+        }
+        .platform-links a {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 4px; border: 1px solid #7ec8e3;
+            text-decoration: none; font-weight: 600;
+        }
+        .platform-links a:hover { background: rgba(126, 200, 227, 0.12); }
+        .platform-links span { opacity: 0.45; user-select: none; }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>CTFd &amp; DOMjudge Bridge Admin</h1>
+    <p class="muted" style="margin-top:-8px;">CTFd and DOMjudge run in their own containers; links open them in your browser (same machine → usually localhost).</p>
+    <div class="platform-links">
+        <a href="{{ ctfd_ui_url }}/" target="_blank" rel="noopener noreferrer">Open CTFd</a>
+        <span>|</span>
+        <a href="{{ domjudge_ui_url }}/" target="_blank" rel="noopener noreferrer">Open DOMjudge</a>
+    </div>
 
     <nav id="main-nav">
         <button onclick="showTab('ctfd-challenges-tab')">CTFd Challenges</button>

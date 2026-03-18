@@ -1,9 +1,9 @@
 # Bridge runs in Docker but uses the host Docker socket to exec into the
 # DOMjudge MariaDB container (must be named "mariadb" by default).
 #
-# Point CTFD_* / DOMJUDGE_* at services reachable from this container.
-# Default URLs use host.docker.internal (services published on the host).
-# For CTFd/DOMjudge in other containers: see docker-compose.attach.yml + env.example.
+# API URLs inside the container MUST NOT use localhost (that is this container).
+# Defaults: host.docker.internal → CTFd/DOMjudge published on the host (ports 8000, 80).
+# Override with BRIDGE_CTFD_API_URL / BRIDGE_DOMJUDGE_API_URL if the bridge joins their Docker network.
 
 services:
   bridge:
@@ -13,12 +13,15 @@ services:
     ports:
       - "${BRIDGE_PORT:-5000}:5000"
     environment:
-      CTFD_API_URL: ${CTFD_API_URL:-http://host.docker.internal:8000/api/v1}
-      CTFD_API_TOKEN: ${CTFD_API_TOKEN:-ctfd_56f30df8543d55021a09f9877e0643cd18bb3873cb4316173cafcf4bd0ca4fd3}
-      DOMJUDGE_API_URL: ${DOMJUDGE_API_URL:-http://host.docker.internal/api/v4}
+      # Not ${CTFD_API_URL}: .env often has localhost for uvicorn — that breaks inside Docker.
+      CTFD_API_URL: ${BRIDGE_CTFD_API_URL:-http://host.docker.internal:8000/api/v1}
+      CTFD_API_TOKEN: ${CTFD_API_TOKEN:-}
+      DOMJUDGE_API_URL: ${BRIDGE_DOMJUDGE_API_URL:-http://host.docker.internal/api/v4}
       DOMJUDGE_USER: ${DOMJUDGE_USER:-admin}
-      DOMJUDGE_PASS: ${DOMJUDGE_PASS:-Mohamedk@1234}
+      DOMJUDGE_PASS: ${DOMJUDGE_PASS:-}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////data/bridge.db}
+      CTFD_UI_URL: ${CTFD_UI_URL:-http://localhost:8000}
+      DOMJUDGE_UI_URL: ${DOMJUDGE_UI_URL:-http://localhost}
     volumes:
       - htq_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
