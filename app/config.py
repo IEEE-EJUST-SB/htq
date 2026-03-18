@@ -15,7 +15,7 @@ class Settings:
 
     # DOMjudge Credentials
     DOMJUDGE_USER: str = os.getenv("DOMJUDGE_USER") or "admin"
-    DOMJUDGE_PASS: str = os.getenv("DOMJUDGE_PASS") or "Mohamed@1234"
+    DOMJUDGE_PASS: str = os.getenv("DOMJUDGE_PASS") or "-cu--ooFfGh1_69JQgaoa-EB_4-1l4cl"
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./bridge.db")

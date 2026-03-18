@@ -1,3 +1,5 @@
+from typing import Optional
+
 import requests
 from requests.auth import HTTPBasicAuth
 from app.config import settings
@@ -42,6 +44,10 @@ class DOMjudgeClient:
         # Supports filtering e.g. language_id, problem_id, team_id
         return self._get_all(f"contests/{contest_id}/submissions", params)
 
+    def get_contest_judgements(self, contest_id: str, **params):
+        # Verdicts live here (judgement_type_id), not on submission objects.
+        return self._get_all(f"contests/{contest_id}/judgements", params)
+
     def add_team_to_contest(self, contest_id: str, team_id, team_name=None) -> dict:
         """
         Add a team to a DOMjudge contest.
@@ -60,3 +66,19 @@ class DOMjudgeClient:
         )
         response.raise_for_status()
         return response.json() if response.content else {}
+
+    def get_contest_teams(self, contest_id: str):
+        """
+        Get teams associated with a specific contest.
+        """
+        return self._get_all(f"contests/{contest_id}/teams")
+
+    def get_scoreboard(self, contest_id: str, sortorder: Optional[int] = None):
+        """
+        Get the scoreboard for a specific contest.
+        DOMjudge supports ?sortorder= (e.g. 1 and 11 for different ranking modes).
+        """
+        params = {}
+        if sortorder is not None:
+            params["sortorder"] = sortorder
+        return self._get_all(f"contests/{contest_id}/scoreboard", params or None)

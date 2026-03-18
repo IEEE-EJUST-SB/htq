@@ -41,6 +41,9 @@ DATABASE_URL=sqlite:///./bridge.db
 
 ## How It Works
 
+The DOMjudge scoreboard proxy supports `?sortorder=` (e.g. `1` and `11`) to match different public ranking modes:  
+`GET /api/domjudge/contests/{contest_id}/scoreboard?sortorder=1` and `...?sortorder=11`.
+
 1. **Link Teams**: Map a CTFd team to a DOMjudge team via the UI.
 2. **Link Problem**: Map a CTFd challenge to a DOMjudge contest.
 3. **Sync**:

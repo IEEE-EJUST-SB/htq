@@ -106,6 +106,11 @@ async def get_ctfd_submissions(
     return ctfd_client.get_submissions(**kwargs)
 
 
+@app.get("/api/ctfd/scoreboard")
+async def get_ctfd_scoreboard():
+    return ctfd_client.get_scoreboard()
+
+
 # ---------------------------------------------------------------------------
 # DOMjudge proxy routes
 # ---------------------------------------------------------------------------
@@ -135,6 +140,31 @@ async def get_domjudge_contest_submissions(
     if team_id:
         params["team_id"] = team_id
     return domjudge_client.get_contest_submissions(contest_id, **params)
+
+
+@app.get("/api/domjudge/contests/{contest_id}/judgements")
+async def get_domjudge_contest_judgements(
+    contest_id: str,
+    submission_id: Optional[str] = None,
+):
+    params = {}
+    if submission_id:
+        params["submission_id"] = submission_id
+    return domjudge_client.get_contest_judgements(contest_id, **params)
+
+
+@app.get("/api/domjudge/contests/{contest_id}/teams")
+async def get_domjudge_contest_teams(contest_id: str):
+    return domjudge_client.get_contest_teams(contest_id)
+
+
+@app.get("/api/domjudge/contests/{contest_id}/scoreboard")
+async def get_domjudge_contest_scoreboard(
+    contest_id: str,
+    sortorder: Optional[int] = None,
+):
+    """Proxy to DOMjudge scoreboard; pass sortorder (e.g. 1, 11) to match public scoreboard modes."""
+    return domjudge_client.get_scoreboard(contest_id, sortorder=sortorder)
 
 
 # ---------------------------------------------------------------------------

@@ -82,3 +82,9 @@ class CTFdClient:
         """
         params = {k: v for k, v in locals().items() if k != "self" and v is not None}
         return self._get("submissions", params)
+
+    def get_scoreboard(self):
+        """
+        GET /scoreboard - public scoreboard.
+        """
+        return self._get("scoreboard")
