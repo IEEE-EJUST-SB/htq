@@ -23,6 +23,8 @@ class ProblemLink(Base):
     domjudge_contest_name = Column(String, nullable=True)
     domjudge_problem_id = Column(String, nullable=True)
     domjudge_problem_name = Column(String, nullable=True)
+    # DOMjudge team category to assign when this CTFd challenge is solved (see change_team_category)
+    target_category_id = Column(Integer, nullable=False, default=2)
 
 
 class Enrollment(Base):

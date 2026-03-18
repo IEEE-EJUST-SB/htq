@@ -141,7 +141,7 @@
     <!-- Problem Links -->
     <div id="problem-links-tab" class="tab-content hidden">
         <h2>Problem Links</h2>
-        <p>Link a CTFd challenge to a DOMjudge contest. Solving the CTFd challenge triggers enrollment of the linked team into that DOMjudge contest.</p>
+        <p>Link a CTFd challenge to a DOMjudge contest. When the challenge is solved, sync moves the team to the DOMjudge <strong>target category</strong> (same as <code>categoryid</code> in the DOMjudge DB).</p>
         <h3>Create New Link</h3>
         <div class="form-row">
             <label>CTFd Challenge
@@ -149,6 +149,9 @@
             </label>
             <label>DOMjudge Contest
                 <select id="pl-domjudge-contest-select"><option value="">Loading...</option></select>
+            </label>
+            <label>Target category ID
+                <input type="number" id="pl-target-category-id" value="2" min="1" step="1" title="DOMjudge team category id after solve" style="width:5rem;">
             </label>
             <button onclick="createProblemLink()">Link Challenge</button>
         </div>
@@ -158,7 +161,7 @@
         <p id="pl-list-error" class="error-msg hidden"></p>
         <table id="problem-links-table">
             <thead>
-                <tr><th>ID</th><th>CTFd Challenge</th><th>DOMjudge Contest</th><th>Action</th></tr>
+                <tr><th>ID</th><th>CTFd Challenge</th><th>DOMjudge Contest</th><th>Target cat.</th><th>Action</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -202,7 +205,6 @@
         <hr>
 
         <h2>DOMjudge Scoreboard</h2>
-        <p class="muted">Two views: <code>sortorder=1</code> and <code>sortorder=11</code> (DOMjudge ranking modes).</p>
         <div class="form-row">
             <label>Contest
                 <select id="domjudge-scoreboard-contest-select" onchange="loadDomjudgeScoreboard()">
@@ -212,24 +214,8 @@
             <button onclick="loadDomjudgeScoreboard()">Refresh</button>
         </div>
         <p id="domjudge-scoreboard-error" class="error-msg hidden"></p>
-
-        <h3>Sort order 1</h3>
-        <p id="domjudge-sb-1-error" class="error-msg hidden"></p>
-        <table id="domjudge-scoreboard-table-1" class="domjudge-sb-table">
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>Team</th>
-                    <th>Score (Solves)</th>
-                    <th>Penalty</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-
-        <h3>Sort order 11</h3>
-        <p id="domjudge-sb-11-error" class="error-msg hidden"></p>
-        <table id="domjudge-scoreboard-table-11" class="domjudge-sb-table">
+        <p id="domjudge-sb-error" class="error-msg hidden"></p>
+        <table id="domjudge-scoreboard-table" class="domjudge-sb-table">
             <thead>
                 <tr>
                     <th>Rank</th>
@@ -647,6 +633,7 @@
                 row.insertCell().textContent = link.domjudge_contest_name
                     ? link.domjudge_contest_name + ' (' + link.domjudge_contest_id + ')'
                     : link.domjudge_contest_id;
+                row.insertCell().textContent = link.target_category_id != null ? String(link.target_category_id) : '2';
                 const ac = row.insertCell();
                 const btn = document.createElement('button');
                 btn.textContent = 'Delete';
@@ -663,6 +650,12 @@
         if (!cv || !ctv) { showMsg('pl-msg', 'Please select both fields.', true); return; }
         const ctfd    = JSON.parse(cv);
         const contest = JSON.parse(ctv);
+        const catEl = document.getElementById('pl-target-category-id');
+        const targetCat = parseInt(catEl && catEl.value, 10);
+        if (!Number.isFinite(targetCat) || targetCat < 1) {
+            showMsg('pl-msg', 'Enter a valid target category ID (integer ≥ 1).', true);
+            return;
+        }
         const r = await fetch('/api/links/problems', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -671,6 +664,7 @@
                 ctfd_challenge_name: ctfd.name,
                 domjudge_contest_id: String(contest.id),
                 domjudge_contest_name: contest.name,
+                target_category_id: targetCat,
             }),
         });
         const d = await r.json();
@@ -828,17 +822,14 @@
         if (!contestId) return;
 
         const errEl = document.getElementById('domjudge-scoreboard-error');
-        const err1 = document.getElementById('domjudge-sb-1-error');
-        const err11 = document.getElementById('domjudge-sb-11-error');
+        const errSb = document.getElementById('domjudge-sb-error');
         errEl.classList.add('hidden');
-        err1.classList.add('hidden');
-        err11.classList.add('hidden');
+        errSb.classList.add('hidden');
 
         try {
-            const [tRes, sc1Res, sc11Res] = await Promise.all([
+            const [tRes, scRes] = await Promise.all([
                 fetch('/api/domjudge/teams'),
                 fetch('/api/domjudge/contests/' + encodeURIComponent(contestId) + '/scoreboard?sortorder=1'),
-                fetch('/api/domjudge/contests/' + encodeURIComponent(contestId) + '/scoreboard?sortorder=11'),
             ]);
 
             const td = await tRes.json();
@@ -854,31 +845,18 @@
                 teamMap[t.id ?? t.teamid] = t.name;
             });
 
-            const sd1 = await sc1Res.json();
-            const sd11 = await sc11Res.json();
+            const sd = await scRes.json();
 
-            if (!sc1Res.ok) {
-                err1.textContent = sd1.error || sd1.detail || 'sortorder=1: error ' + sc1Res.status;
-                err1.classList.remove('hidden');
-                document.getElementById('domjudge-scoreboard-table-1').querySelector('tbody').innerHTML = '';
+            if (!scRes.ok) {
+                errSb.textContent = sd.error || sd.detail || 'Scoreboard: error ' + scRes.status;
+                errSb.classList.remove('hidden');
+                document.getElementById('domjudge-scoreboard-table').querySelector('tbody').innerHTML = '';
             } else {
-                const rows1 = Array.isArray(sd1) ? sd1 : (sd1.rows || sd1.data || []);
+                errSb.classList.add('hidden');
+                const rows = Array.isArray(sd) ? sd : (sd.rows || sd.data || []);
                 fillDomjudgeScoreboardTbody(
-                    document.getElementById('domjudge-scoreboard-table-1').querySelector('tbody'),
-                    rows1,
-                    teamMap
-                );
-            }
-
-            if (!sc11Res.ok) {
-                err11.textContent = sd11.error || sd11.detail || 'sortorder=11: error ' + sc11Res.status;
-                err11.classList.remove('hidden');
-                document.getElementById('domjudge-scoreboard-table-11').querySelector('tbody').innerHTML = '';
-            } else {
-                const rows11 = Array.isArray(sd11) ? sd11 : (sd11.rows || sd11.data || []);
-                fillDomjudgeScoreboardTbody(
-                    document.getElementById('domjudge-scoreboard-table-11').querySelector('tbody'),
-                    rows11,
+                    document.getElementById('domjudge-scoreboard-table').querySelector('tbody'),
+                    rows,
                     teamMap
                 );
             }

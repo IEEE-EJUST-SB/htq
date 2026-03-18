@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
@@ -18,3 +18,18 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def migrate_problem_links_target_category():
+    """Add target_category_id to problem_links if missing (existing DBs before this column)."""
+    insp = inspect(engine)
+    if "problem_links" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("problem_links")}
+    if "target_category_id" in cols:
+        return
+    stmt = text(
+        "ALTER TABLE problem_links ADD COLUMN target_category_id INTEGER NOT NULL DEFAULT 2"
+    )
+    with engine.begin() as conn:
+        conn.execute(stmt)

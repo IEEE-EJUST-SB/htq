@@ -3,17 +3,18 @@ from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 import requests
 
 from app.api.ctfd_client import CTFdClient
 from app.api.domjudge_client import DOMjudgeClient
-from app.db.database import get_db, engine, Base
+from app.db.database import get_db, engine, Base, migrate_problem_links_target_category
 from app.db import models
 from change_team_category import change_team_category
 
 Base.metadata.create_all(bind=engine)
+migrate_problem_links_target_category()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
@@ -61,6 +62,9 @@ class ProblemLinkCreate(BaseModel):
     ctfd_challenge_name: str
     domjudge_contest_id: str
     domjudge_contest_name: Optional[str] = None
+    target_category_id: int = Field(
+        2, description="DOMjudge team category id when this challenge is solved (sync)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +237,7 @@ def list_problem_links(db: Session = Depends(get_db)):
             "ctfd_challenge_name": l.ctfd_challenge_name,
             "domjudge_contest_id": l.domjudge_contest_id,
             "domjudge_contest_name": l.domjudge_contest_name,
+            "target_category_id": l.target_category_id,
         }
         for l in links
     ]
@@ -250,6 +255,7 @@ def create_problem_link(payload: ProblemLinkCreate, db: Session = Depends(get_db
         ctfd_challenge_name=payload.ctfd_challenge_name,
         domjudge_contest_id=payload.domjudge_contest_id,
         domjudge_contest_name=payload.domjudge_contest_name,
+        target_category_id=payload.target_category_id,
         domjudge_problem_id="",  # Deprecated
         domjudge_problem_name="",  # Deprecated
     )
@@ -319,7 +325,9 @@ def run_sync(db: Session = Depends(get_db)):
         error_msg = None
         try:
             # Instead of adding team to contest via API, we change its category directly via DB/Docker
-            success, err = change_team_category(team_link.domjudge_team_id, 2)
+            success, err = change_team_category(
+                team_link.domjudge_team_id, problem_link.target_category_id
+            )
             if not success:
                 status = "error"
                 error_msg = err
