@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Complete payment — HTQ 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <header>
+        <div class="logo"><a href="index.html" style="text-decoration: none; color: inherit;">HTQ</a> <span>/ <a
+                    href="https://studentbranches.ieee.org/eg-ejust-cs/" target="_blank" rel="noopener noreferrer">IEEE
+                    EJUST CS</a></span></div>
+        <nav><a href="index.html">Back to Home</a></nav>
+    </header>
+
+    <main>
+        <div class="form-container">
+            <div class="form-header">
+                <a href="index.html" class="back-link">← Return Home</a>
+                <h2>Registration — Payment</h2>
+                <p id="tokenHint">Confirm your team name and upload your payment receipt. Use the link from your team leader email.</p>
+            </div>
+
+            <form id="completeForm" novalidate>
+                <div class="form-group">
+                    <label for="teamNameConfirm">Team Name (must match registration)</label>
+                    <input type="text" id="teamNameConfirm" name="teamName" placeholder="Exact team name" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="paymentReceipt">Upload Payment Receipt / Screenshot</label>
+                    <input type="file" id="paymentReceipt" name="paymentReceipt" accept="image/*" required />
+                    <p class="file-hint">Upload a screenshot or photo of your payment receipt</p>
+                    <div id="paymentPreviewContainer" class="image-preview-grid"></div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Submit payment</button>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <p>Copyright &copy; 2026 IEEE EJUST CS</p>
+        <p>HTQ &mdash; All rights reserved</p>
+    </footer>
+
+    <script src="js/htq-config.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('t');
+        const paymentInput = document.getElementById('paymentReceipt');
+        const paymentPreview = document.getElementById('paymentPreviewContainer');
+
+        if (!token) {
+            document.getElementById('tokenHint').innerText =
+                'Missing link token. Open this page from the email sent to your team leader after stage 1 registration.';
+            document.getElementById('completeForm').style.display = 'none';
+        }
+
+        paymentInput.addEventListener('change', function () {
+            paymentPreview.innerHTML = '';
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const item = document.createElement('div');
+                    item.className = 'preview-item';
+                    item.innerHTML = `
+                        <img src="${e.target.result}" alt="">
+                        <div class="preview-label">Receipt</div>
+                    `;
+                    paymentPreview.appendChild(item);
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        function showFancyError(message, element) {
+            const error = document.createElement('div');
+            error.className = 'fancy-error';
+            error.innerText = message;
+            document.body.appendChild(error);
+            setTimeout(() => error.remove(), 4000);
+
+            if (element) {
+                const group = element.closest('.form-group');
+                if (group) {
+                    group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    group.classList.remove('error-highlight');
+                    void group.offsetWidth;
+                    group.classList.add('error-highlight');
+                }
+            }
+        }
+
+        function apiBase() {
+            const base = (window.HTQ_CONFIG && window.HTQ_CONFIG.apiBase) || '';
+            return String(base).replace(/\/$/, '');
+        }
+
+        document.getElementById('completeForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            if (!token) return;
+
+            const teamName = document.getElementById('teamNameConfirm').value.trim();
+            if (!teamName) {
+                showFancyError('Team name is required.', document.getElementById('teamNameConfirm'));
+                return;
+            }
+            if (!paymentInput.files || !paymentInput.files[0]) {
+                showFancyError('Payment receipt is required!', paymentInput);
+                return;
+            }
+
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Uploading...';
+            btn.style.opacity = '0.7';
+            btn.disabled = true;
+
+            const fd = new FormData();
+            fd.append('token', token);
+            fd.append('teamName', teamName);
+            fd.append('paymentReceipt', paymentInput.files[0]);
+
+            try {
+                const res = await fetch(`${apiBase()}/completeStage2`, {
+                    method: 'POST',
+                    body: fd,
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.error || res.statusText);
+                }
+                alert(data.message || 'Upload complete.');
+                this.reset();
+                paymentPreview.innerHTML = '';
+            } catch (err) {
+                showFancyError(err.message || 'Upload failed', btn);
+            } finally {
+                btn.innerText = originalText;
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            }
+        });
+    </script>
+
+</body>
+
+</html>

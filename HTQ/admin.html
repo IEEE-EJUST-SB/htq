@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTQ — Organizer dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+        .admin-toolbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
+        .admin-table-wrap { overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+        table.admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .admin-table th, .admin-table td { padding: 0.65rem 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: top; }
+        .admin-table th { font-weight: 500; opacity: 0.85; }
+        .receipt-thumb { max-width: 120px; max-height: 90px; object-fit: cover; border-radius: 4px; }
+        .muted { opacity: 0.7; font-size: 0.85rem; }
+        #signInPanel input { margin-right: 0.5rem; margin-bottom: 0.5rem; }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo"><a href="index.html" style="text-decoration: none; color: inherit;">HTQ</a>
+            <span class="muted">/ Organizers</span></div>
+        <nav><a href="index.html">Home</a></nav>
+    </header>
+
+    <main class="admin-wrap">
+        <div id="signInPanel">
+            <h2 style="margin-bottom: 1rem;">Organizer sign-in</h2>
+            <p class="muted" style="margin-bottom: 1rem;">Use an account with the <code>admin</code> custom claim (see README).</p>
+            <div class="form-group">
+                <label for="adminEmail">Email</label>
+                <input type="email" id="adminEmail" autocomplete="username" />
+            </div>
+            <div class="form-group">
+                <label for="adminPassword">Password</label>
+                <input type="password" id="adminPassword" autocomplete="current-password" />
+            </div>
+            <button type="button" class="submit-btn" id="signInBtn">Sign in</button>
+            <p id="authError" class="muted" style="margin-top: 1rem; color: #f88;"></p>
+        </div>
+
+        <div id="dashboardPanel" style="display: none;">
+            <div class="admin-toolbar">
+                <h2 style="margin: 0;">Teams</h2>
+                <button type="button" class="submit-btn" id="refreshBtn" style="padding: 0.5rem 1rem;">Refresh</button>
+                <button type="button" class="submit-btn" id="signOutBtn" style="padding: 0.5rem 1rem; opacity: 0.85;">Sign out</button>
+            </div>
+            <p id="dashError" class="muted" style="color: #f88; margin-bottom: 1rem;"></p>
+            <div class="admin-table-wrap">
+                <table class="admin-table" id="teamsTable">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>Leader email</th>
+                            <th>Status</th>
+                            <th>Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teamsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>Copyright &copy; 2026 IEEE EJUST CS</p>
+    </footer>
+
+    <script src="js/htq-config.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
+
+        const cfg = window.HTQ_CONFIG && window.HTQ_CONFIG.firebase;
+        if (!cfg || !cfg.apiKey || cfg.apiKey === 'YOUR_WEB_API_KEY') {
+            document.body.innerHTML = '<p style="padding:2rem">Set <code>HTQ/js/htq-config.js</code> with your Firebase web config.</p>';
+            throw new Error('Configure firebase');
+        }
+        
+        const app = initializeApp(cfg);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // Auto-connect to auth emulator if running locally
+        if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+            import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js").then(({ connectAuthEmulator }) => {
+                connectAuthEmulator(auth, "http://127.0.0.1:9099");
+            });
+            import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js").then(({ connectFirestoreEmulator }) => {
+                connectFirestoreEmulator(db, "127.0.0.1", 8080);
+            });
+            import("https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js").then(({ connectStorageEmulator }) => {
+                connectStorageEmulator(storage, "127.0.0.1", 9199);
+            });
+        }
+
+        const signInPanel = document.getElementById('signInPanel');
+        const dashboardPanel = document.getElementById('dashboardPanel');
+        const authError = document.getElementById('authError');
+        const dashError = document.getElementById('dashError');
+        const teamsBody = document.getElementById('teamsBody');
+
+        function showAuthError(msg) {
+            authError.innerText = msg || '';
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const idTokenResult = await user.getIdTokenResult(true);
+                if (!idTokenResult.claims.admin) {
+                    showAuthError('This account does not have organizer access. Ask for the admin claim, sign out, and sign in again.');
+                    dashboardPanel.style.display = 'none';
+                    signInPanel.style.display = 'block';
+                    return;
+                }
+                signInPanel.style.display = 'none';
+                dashboardPanel.style.display = 'block';
+                await loadTeams();
+            } else {
+                signInPanel.style.display = 'block';
+                dashboardPanel.style.display = 'none';
+            }
+        });
+
+        document.getElementById('signInBtn').addEventListener('click', async () => {
+            showAuthError('');
+            const email = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (e) {
+                showAuthError(e.message || 'Sign-in failed');
+            }
+        });
+
+        document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+        document.getElementById('refreshBtn').addEventListener('click', () => loadTeams());
+
+        async function loadTeams() {
+            dashError.innerText = '';
+            teamsBody.innerHTML = '';
+            try {
+                const q = query(collection(db, 'teams'), orderBy('createdAt', 'desc'), limit(200));
+                const snap = await getDocs(q);
+                for (const doc of snap.docs) {
+                    const d = doc.data();
+                    const reg = d.registration || {};
+                    const tr = document.createElement('tr');
+                    const receiptCell = document.createElement('td');
+                    if (d.paymentReceipt && d.paymentReceipt.storagePath) {
+                        try {
+                            const url = await getDownloadURL(ref(storage, d.paymentReceipt.storagePath));
+                            const img = document.createElement('img');
+                            img.className = 'receipt-thumb';
+                            img.src = url;
+                            img.alt = 'Receipt';
+                            receiptCell.appendChild(img);
+                        } catch (e) {
+                            receiptCell.innerText = '(could not load image)';
+                        }
+                    } else {
+                        receiptCell.innerText = '—';
+                    }
+                    tr.innerHTML = `
+                        <td>${escapeHtml(reg.teamName || '')}</td>
+                        <td>${escapeHtml(reg.leaderEmail || '')}</td>
+                        <td>${escapeHtml(d.status || '')}</td>
+                    `;
+                    tr.appendChild(receiptCell);
+                    teamsBody.appendChild(tr);
+                }
+            } catch (e) {
+                dashError.innerText = e.message || 'Failed to load teams';
+            }
+        }
+
+        function escapeHtml(s) {
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>

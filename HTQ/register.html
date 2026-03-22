@@ -16,7 +16,7 @@
 <body>
 
     <header>
-        <div class="logo"><a href="main_page.html" style="text-decoration: none; color: inherit;">HTQ</a> <span>/ <a
+        <div class="logo"><a href="index.html" style="text-decoration: none; color: inherit;">HTQ</a> <span>/ <a
                     href="https://studentbranches.ieee.org/eg-ejust-cs/" target="_blank" rel="noopener noreferrer">IEEE
                     EJUST CS</a></span></div>
         <nav><a href="index.html">Back to Home</a></nav>
@@ -27,7 +27,7 @@
             <div class="form-header">
                 <a href="index.html" class="back-link">← Return Home</a>
                 <h2>Contest Registration</h2>
-                <p>Join the next generation of cyber scouts and competitive programmers.</p>
+                <p>Stage 1: team details and national IDs. You will receive an email to upload payment later.</p>
             </div>
 
             <form id="registrationForm" novalidate>
@@ -42,7 +42,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="email">Email Address</label>
+                    <label for="email">Email Address (Team Leader)</label>
                     <input type="email" id="email" name="email" placeholder="Name@example.com" required />
                 </div>
 
@@ -82,6 +82,8 @@
                     </select>
                 </div>
 
+                <div id="memberFields"></div>
+
                 <div class="form-group">
                     <label for="comments">Additional Notes (Optional)</label>
                     <textarea id="comments" name="comments" rows="3" placeholder="Tell us anything else..."></textarea>
@@ -97,6 +99,7 @@
         <p>HTQ &mdash; All rights reserved</p>
     </footer>
 
+    <script src="js/htq-config.js"></script>
     <script>
         const commentsBox = document.getElementById('comments');
         commentsBox.addEventListener('input', function () {
@@ -104,7 +107,6 @@
             this.style.height = this.scrollHeight + 'px';
         });
 
-        // IEEE Membership toggle
         const ieeeMemberSelect = document.getElementById('ieeeMember');
         const membershipIdGroup = document.getElementById('membershipIdGroup');
         const membershipIdInput = document.getElementById('membershipId');
@@ -120,6 +122,34 @@
             }
         });
 
+        const teamSizeSelect = document.getElementById('teamSize');
+        const memberFields = document.getElementById('memberFields');
+
+        function renderMemberFields() {
+            const size = parseInt(teamSizeSelect.value, 10);
+            memberFields.innerHTML = '';
+            for (let i = 1; i <= size; i++) {
+                const nameGroup = document.createElement('div');
+                nameGroup.className = 'form-group';
+                nameGroup.innerHTML = `
+                    <label for="memberName${i}">Member #${i} — Full Name</label>
+                    <input type="text" id="memberName${i}" name="memberName${i}" placeholder="Enter Full Name" required />
+                `;
+                memberFields.appendChild(nameGroup);
+
+                const idGroup = document.createElement('div');
+                idGroup.className = 'form-group';
+                idGroup.innerHTML = `
+                    <label for="nationalId${i}">Member #${i} — National ID Number</label>
+                    <input type="text" id="nationalId${i}" name="nationalId${i}" placeholder="Enter National ID" required />
+                `;
+                memberFields.appendChild(idGroup);
+            }
+        }
+
+        teamSizeSelect.addEventListener('change', renderMemberFields);
+        renderMemberFields();
+
         function showFancyError(message, element) {
             const error = document.createElement('div');
             error.className = 'fancy-error';
@@ -129,17 +159,23 @@
 
             if (element) {
                 const group = element.closest('.form-group');
-                group.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                group.classList.remove('error-highlight');
-                void group.offsetWidth;
-                group.classList.add('error-highlight');
+                if (group) {
+                    group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    group.classList.remove('error-highlight');
+                    void group.offsetWidth;
+                    group.classList.add('error-highlight');
+                }
             }
         }
 
-        document.getElementById('registrationForm').addEventListener('submit', function (e) {
+        function apiBase() {
+            const base = (window.HTQ_CONFIG && window.HTQ_CONFIG.apiBase) || '';
+            return String(base).replace(/\/$/, '');
+        }
+
+        document.getElementById('registrationForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // 1. Validate required text/select fields
             const requiredFields = this.querySelectorAll('input[required], select[required]');
             for (let field of requiredFields) {
                 if (!field.value.trim()) {
@@ -149,23 +185,61 @@
                 }
             }
 
-            // 2. Success Flow
+            const teamSize = parseInt(teamSizeSelect.value, 10);
+            const members = [];
+            for (let i = 1; i <= teamSize; i++) {
+                const fn = document.getElementById(`memberName${i}`);
+                const nid = document.getElementById(`nationalId${i}`);
+                if (!fn.value.trim() || !nid.value.trim()) {
+                    showFancyError(`Member #${i}: full name and national ID are required.`, fn);
+                    return;
+                }
+                members.push({ fullName: fn.value.trim(), nationalId: nid.value.trim() });
+            }
+
             const btn = document.getElementById('submitBtn');
             const originalText = btn.innerText;
             btn.innerText = 'Transmitting...';
             btn.style.opacity = '0.7';
             btn.disabled = true;
 
-            setTimeout(() => {
-                alert('Registration Successful! Welcome to HTQ 2026.');
-                btn.innerText = originalText;
-                btn.style.opacity = '1';
-                btn.disabled = false;
+            const registration = {
+                teamName: document.getElementById('teamName').value.trim(),
+                leaderFullName: document.getElementById('fullName').value.trim(),
+                leaderEmail: document.getElementById('email').value.trim(),
+                university: document.getElementById('university').value.trim(),
+                ieeeMember: ieeeMemberSelect.value,
+                ieeeMembershipId: membershipIdInput.value.trim(),
+                csMember: document.getElementById('csMember').value,
+                teamSize,
+                comments: document.getElementById('comments').value.trim(),
+            };
+
+            const payload = { registration, members };
+
+            try {
+                const res = await fetch(`${apiBase()}/submitStage1`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.error || res.statusText);
+                }
+                alert(data.message || 'Registration successful. Check the team leader email for the payment link.');
                 this.reset();
                 membershipIdGroup.classList.remove('visible');
                 membershipIdInput.removeAttribute('required');
                 membershipIdInput.value = '';
-            }, 1500);
+                renderMemberFields();
+            } catch (err) {
+                showFancyError(err.message || 'Submission failed', btn);
+            } finally {
+                btn.innerText = originalText;
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            }
         });
     </script>
 
