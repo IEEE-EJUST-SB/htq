@@ -15,7 +15,30 @@
 
 <body>
 
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">HTQ</div>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">&times;</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="restaurants.html" class="sidebar-link">
+        <span class="sidebar-icon">&#127860;</span> Restaurant Menus
+      </a>
+      <div class="sidebar-divider"></div>
+      <a href="#about" class="sidebar-link">
+        <span class="sidebar-icon">&#8505;</span> About
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <p>&copy; 2026 IEEE EJUST CS</p>
+    </div>
+  </aside>
+
   <header>
+    <button class="hamburger" id="hamburgerBtn" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
     <div class="logo">HTQ <span>/ <a href="https://studentbranches.ieee.org/eg-ejust-cs/" target="_blank"
           rel="noopener noreferrer">IEEE EJUST CS</a></span></div>
     <nav><a href="register.html">Register</a></nav>
@@ -81,6 +104,27 @@
         card.style.setProperty('--mouse-y', `${y}px`);
       });
     });
+
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const openBtn = document.getElementById('hamburgerBtn');
+    const closeBtn = document.getElementById('sidebarClose');
+
+    function openSidebar() {
+      sidebar.classList.add('open');
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    openBtn.addEventListener('click', openSidebar);
+    closeBtn.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
   </script>
 
 </body>

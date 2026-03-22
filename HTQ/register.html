@@ -98,13 +98,19 @@
     </footer>
 
     <script>
+        // =============================================
+        // ⚠️  PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW
+        // =============================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwVU22Bj3-ioqXwGJQ69mIZywuKacc_9aylt3RbSZ9Blb3u4V-2MhNn0cCO_eYUwQ/exec';
+
+        // --- Textarea auto-resize ---
         const commentsBox = document.getElementById('comments');
         commentsBox.addEventListener('input', function () {
             this.style.height = 'auto';
             this.style.height = this.scrollHeight + 'px';
         });
 
-        // IEEE Membership toggle
+        // --- IEEE membership toggle ---
         const ieeeMemberSelect = document.getElementById('ieeeMember');
         const membershipIdGroup = document.getElementById('membershipIdGroup');
         const membershipIdInput = document.getElementById('membershipId');
@@ -120,13 +126,54 @@
             }
         });
 
-        function showFancyError(message, element) {
-            const error = document.createElement('div');
-            error.className = 'fancy-error';
-            error.innerText = message;
-            document.body.appendChild(error);
-            setTimeout(() => error.remove(), 4000);
+        // --- Toast notification system ---
+        function showToast(message, type = 'error') {
+            // Remove existing toasts
+            document.querySelectorAll('.toast-notification').forEach(t => t.remove());
 
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            // Styles
+            Object.assign(toast.style, {
+                position: 'fixed',
+                top: '24px',
+                right: '24px',
+                zIndex: '9999',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px 22px',
+                borderRadius: '12px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.95rem',
+                fontWeight: '500',
+                color: '#fff',
+                background: type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
+                           : type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                           : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                transform: 'translateX(120%)',
+                transition: 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                maxWidth: '400px',
+            });
+
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(120%)';
+                setTimeout(() => toast.remove(), 400);
+            }, 5000);
+        }
+
+        // --- Field-level error highlight ---
+        function showFieldError(message, element) {
+            showToast(message, 'error');
             if (element) {
                 const group = element.closest('.form-group');
                 group.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -136,37 +183,165 @@
             }
         }
 
-        document.getElementById('registrationForm').addEventListener('submit', function (e) {
+        // --- Form submission ---
+        document.getElementById('registrationForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // 1. Validate required text/select fields
+            // Validate required fields
             const requiredFields = this.querySelectorAll('input[required], select[required]');
             for (let field of requiredFields) {
                 if (!field.value.trim()) {
                     const label = field.closest('.form-group').querySelector('label').innerText;
-                    showFancyError(`Field Required: ${label}`, field);
+                    showFieldError(`Field Required: ${label}`, field);
                     return;
                 }
             }
 
-            // 2. Success Flow
+            // Validate email format
+            const emailField = document.getElementById('email');
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailField.value.trim())) {
+                showFieldError('Please enter a valid email address.', emailField);
+                return;
+            }
+
+            // Check if script URL has been set
+            if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+                showToast('⚙️ Database not configured yet. Please set the SCRIPT_URL.', 'error');
+                return;
+            }
+
+            // Generate a unique Team ID
+            function generateTeamId() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0,O,1,I to avoid confusion
+                let id = 'HTQ-';
+                for (let i = 0; i < 6; i++) {
+                    id += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return id;
+            }
+
+            // Collect form data
+            const teamId = generateTeamId();
+            const formData = {
+                teamId: teamId,
+                teamName: document.getElementById('teamName').value.trim(),
+                fullName: document.getElementById('fullName').value.trim(),
+                email: emailField.value.trim(),
+                university: document.getElementById('university').value.trim(),
+                ieeeMember: document.getElementById('ieeeMember').value,
+                membershipId: document.getElementById('membershipId').value.trim(),
+                csMember: document.getElementById('csMember').value,
+                teamSize: document.getElementById('teamSize').value,
+                comments: document.getElementById('comments').value.trim(),
+            };
+
+            // Set loading state
             const btn = document.getElementById('submitBtn');
             const originalText = btn.innerText;
             btn.innerText = 'Transmitting...';
             btn.style.opacity = '0.7';
             btn.disabled = true;
 
-            setTimeout(() => {
-                alert('Registration Successful! Welcome to HTQ 2026.');
-                btn.innerText = originalText;
-                btn.style.opacity = '1';
-                btn.disabled = false;
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(formData),
+                });
+
+                // Show Team ID modal
+                showTeamIdModal(teamId);
+
+                // Reset form
                 this.reset();
                 membershipIdGroup.classList.remove('visible');
                 membershipIdInput.removeAttribute('required');
                 membershipIdInput.value = '';
-            }, 1500);
+
+            } catch (error) {
+                showToast('Network error — please check your connection and try again.', 'error');
+                console.error('Registration error:', error);
+            } finally {
+                btn.innerText = originalText;
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            }
         });
+
+        // --- Team ID Modal ---
+        function showTeamIdModal(teamId) {
+            // Remove previous modals
+            document.querySelectorAll('.team-id-overlay').forEach(m => m.remove());
+
+            const overlay = document.createElement('div');
+            overlay.className = 'team-id-overlay';
+            Object.assign(overlay.style, {
+                position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: '10000', animation: 'fadeIn 0.3s ease',
+            });
+
+            const modal = document.createElement('div');
+            Object.assign(modal.style, {
+                background: 'linear-gradient(145deg, #1a1a2e, #16213e)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: '20px', padding: '40px', maxWidth: '440px', width: '90%',
+                textAlign: 'center', color: '#fff', fontFamily: "'DM Sans', sans-serif",
+                boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                animation: 'scaleIn 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
+            });
+
+            modal.innerHTML = `
+                <div style="font-size:3rem;margin-bottom:12px">🎉</div>
+                <h2 style="margin:0 0 8px;font-family:'DM Serif Display',serif;font-size:1.6rem;color:#a5b4fc">Registration Successful!</h2>
+                <p style="color:#94a3b8;margin:0 0 20px;font-size:0.9rem">Save your Team ID — you'll need it to upload National IDs & payment receipt.</p>
+                <div id="teamIdBox" style="
+                    background:rgba(99,102,241,0.15); border:2px dashed #6366f1;
+                    border-radius:12px; padding:16px; font-size:1.8rem; font-weight:700;
+                    letter-spacing:4px; color:#818cf8; font-family:'DM Mono',monospace;
+                    cursor:pointer; user-select:all; margin-bottom:16px;
+                " title="Click to copy">${teamId}</div>
+                <button id="copyIdBtn" style="
+                    background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff;
+                    border:none; padding:12px 28px; border-radius:10px; font-size:0.95rem;
+                    cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:500;
+                    margin-bottom:12px; transition:transform 0.2s;
+                ">📋 Copy Team ID</button>
+                <br>
+                <button id="closeModalBtn" style="
+                    background:transparent; color:#64748b; border:1px solid #334155;
+                    padding:10px 24px; border-radius:10px; font-size:0.85rem;
+                    cursor:pointer; font-family:'DM Sans',sans-serif; margin-top:4px;
+                ">Close</button>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Add animation keyframes
+            if (!document.getElementById('modalAnimations')) {
+                const style = document.createElement('style');
+                style.id = 'modalAnimations';
+                style.textContent = `
+                    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+                    @keyframes scaleIn { from { transform:scale(0.9);opacity:0 } to { transform:scale(1);opacity:1 } }
+                `;
+                document.head.appendChild(style);
+            }
+
+            document.getElementById('copyIdBtn').addEventListener('click', () => {
+                navigator.clipboard.writeText(teamId).then(() => {
+                    document.getElementById('copyIdBtn').innerText = '✅ Copied!';
+                    setTimeout(() => { document.getElementById('copyIdBtn').innerText = '📋 Copy Team ID'; }, 2000);
+                });
+            });
+
+            document.getElementById('closeModalBtn').addEventListener('click', () => overlay.remove());
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        }
     </script>
 
 </body>

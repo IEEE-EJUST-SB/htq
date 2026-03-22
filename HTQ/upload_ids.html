@@ -32,6 +32,13 @@
 
             <form id="uploadForm" novalidate>
                 <div class="form-group">
+                    <label for="teamId">Team ID</label>
+                    <input type="text" id="teamId" name="teamId" placeholder="e.g. HTQ-A3X9K2" required 
+                        style="text-transform:uppercase; letter-spacing:2px; font-family:'DM Mono',monospace; font-weight:600" />
+                    <p class="file-hint">Enter the Team ID you received after registration</p>
+                </div>
+
+                <div class="form-group">
                     <label for="teamSize">Number of Team Members</label>
                     <select id="teamSize" name="teamSize" required>
                         <option value="3">3 Members</option>
@@ -62,11 +69,18 @@
     </footer>
 
     <script>
+        // =============================================
+        // ⚠️  PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW
+        //     (This should be a SEPARATE deployment from the registration script)
+        // =============================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8K3E5ChumpgLaOIXxgNzuOnRhn6NsqaabWUd95pwmc3vh9pkuPekbPcTH8a8zhj8/exec';
+
         const teamSizeSelect = document.getElementById('teamSize');
         const memberFields = document.getElementById('memberFields');
         const paymentInput = document.getElementById('paymentReceipt');
         const paymentPreview = document.getElementById('paymentPreviewContainer');
 
+        // --- Dynamic member fields ---
         function renderDynamicFields() {
             const size = parseInt(teamSizeSelect.value);
             memberFields.innerHTML = '';
@@ -92,6 +106,7 @@
         teamSizeSelect.addEventListener('change', renderDynamicFields);
         renderDynamicFields();
 
+        // --- Payment receipt preview ---
         paymentInput.addEventListener('change', function () {
             paymentPreview.innerHTML = '';
             if (this.files && this.files[0]) {
@@ -109,13 +124,52 @@
             }
         });
 
-        function showFancyError(message, element) {
-            const error = document.createElement('div');
-            error.className = 'fancy-error';
-            error.innerText = message;
-            document.body.appendChild(error);
-            setTimeout(() => error.remove(), 4000);
+        // --- Toast notification system ---
+        function showToast(message, type = 'error') {
+            document.querySelectorAll('.toast-notification').forEach(t => t.remove());
 
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            Object.assign(toast.style, {
+                position: 'fixed',
+                top: '24px',
+                right: '24px',
+                zIndex: '9999',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px 22px',
+                borderRadius: '12px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.95rem',
+                fontWeight: '500',
+                color: '#fff',
+                background: type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
+                           : type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                           : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                transform: 'translateX(120%)',
+                transition: 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                maxWidth: '400px',
+            });
+
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(120%)';
+                setTimeout(() => toast.remove(), 400);
+            }, 5000);
+        }
+
+        // --- Field error highlight ---
+        function showFieldError(message, element) {
+            showToast(message, 'error');
             if (element) {
                 const group = element.closest('.form-group');
                 group.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -125,37 +179,99 @@
             }
         }
 
-        document.getElementById('uploadForm').addEventListener('submit', function (e) {
+        // --- Convert file to base64 ---
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- Form submission ---
+        document.getElementById('uploadForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
+            // Validate Team ID
+            const teamIdField = document.getElementById('teamId');
+            if (!teamIdField.value.trim()) {
+                showFieldError('Team ID is required!', teamIdField);
+                return;
+            }
+
+            // Validate member fields
             const allDynamicInputs = memberFields.querySelectorAll('input[required]');
             for (let field of allDynamicInputs) {
                 if (!field.value.trim()) {
                     const label = field.closest('.form-group').querySelector('label').innerText;
-                    showFancyError(`Field Required: ${label}`, field);
+                    showFieldError(`Field Required: ${label}`, field);
                     return;
                 }
             }
 
+            // Validate payment receipt
             if (!paymentInput.files || paymentInput.files.length === 0) {
-                showFancyError('Payment receipt is required!', paymentInput);
+                showFieldError('Payment receipt is required!', paymentInput);
                 return;
             }
+
+            // Check if script URL has been configured
+            if (SCRIPT_URL === 'YOUR_UPLOAD_IDS_SCRIPT_URL_HERE') {
+                showToast('⚙️ Database not configured yet. Please set the SCRIPT_URL.', 'error');
+                return;
+            }
+
+            // Collect members data
+            const teamSize = parseInt(teamSizeSelect.value);
+            const members = [];
+            for (let i = 1; i <= teamSize; i++) {
+                members.push({
+                    name: document.getElementById(`memberName${i}`).value.trim(),
+                    nationalId: document.getElementById(`nationalId${i}`).value.trim(),
+                });
+            }
+
+            // Set loading state
             const btn = document.getElementById('submitBtn');
             const originalText = btn.innerText;
-            btn.innerText = 'Transmitting...';
+            btn.innerText = 'Uploading...';
             btn.style.opacity = '0.7';
             btn.disabled = true;
 
-            setTimeout(() => {
-                alert('Uploaded Successfully!');
-                btn.innerText = originalText;
-                btn.style.opacity = '1';
-                btn.disabled = false;
+            try {
+                // Convert receipt image to base64
+                const paymentBase64 = await fileToBase64(paymentInput.files[0]);
+
+                const formData = {
+                    teamId: teamIdField.value.trim().toUpperCase(),
+                    teamSize: teamSize,
+                    members: members,
+                    paymentReceipt: paymentBase64,
+                };
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(formData),
+                });
+
+                showToast('🎉 IDs & receipt uploaded successfully!', 'success');
+
+                // Reset form
                 this.reset();
                 paymentPreview.innerHTML = '';
                 renderDynamicFields();
-            }, 1500);
+
+            } catch (error) {
+                showToast('Network error — please check your connection and try again.', 'error');
+                console.error('Upload error:', error);
+            } finally {
+                btn.innerText = originalText;
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            }
         });
     </script>
 
