@@ -60,6 +60,8 @@
 
                 <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
             </form>
+
+            <p class="forgot-team-id-text">Forgot your Team ID? <a href="#" id="forgotTeamIdLink">Recover it here</a></p>
         </div>
     </main>
 
@@ -315,6 +317,118 @@
                 btn.disabled = false;
             }
         });
+        // --- Forgot Team ID modal ---
+        document.getElementById('forgotTeamIdLink').addEventListener('click', function (e) {
+            e.preventDefault();
+            showForgotIdModal();
+        });
+
+        function showForgotIdModal() {
+            // Remove previous modals
+            document.querySelectorAll('.forgot-id-overlay').forEach(m => m.remove());
+
+            const overlay = document.createElement('div');
+            overlay.className = 'forgot-id-overlay recover-overlay';
+
+            const modal = document.createElement('div');
+            modal.className = 'recover-modal';
+
+            modal.innerHTML = `
+                <a href="#" class="back-link" id="closeRecoverTop">← Back</a>
+                <div class="recover-modal-header">
+                    <h2>Recover Team ID</h2>
+                    <p>Enter the team name and email you used during registration.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="recoverTeamName">Team Name</label>
+                    <input type="text" id="recoverTeamName" placeholder="Enter your team name" />
+                </div>
+
+                <div class="form-group">
+                    <label for="recoverEmail">Email Address</label>
+                    <input type="email" id="recoverEmail" placeholder="name@example.com" />
+                </div>
+
+                <div id="recoverResult" class="recover-result"></div>
+
+                <button id="recoverBtn" class="submit-btn">Recover Team ID</button>
+                <button id="closeRecoverBtn" class="recover-close-btn">Close</button>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Add animation keyframes if not already present
+            if (!document.getElementById('modalAnimations')) {
+                const style = document.createElement('style');
+                style.id = 'modalAnimations';
+                style.textContent = `
+                    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+                    @keyframes scaleIn { from { transform:scale(0.9);opacity:0 } to { transform:scale(1);opacity:1 } }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Focus the first input
+            setTimeout(() => document.getElementById('recoverTeamName').focus(), 100);
+
+            // Look-up button handler
+            document.getElementById('recoverBtn').addEventListener('click', async () => {
+                const teamName = document.getElementById('recoverTeamName').value.trim();
+                const email = document.getElementById('recoverEmail').value.trim();
+                const resultDiv = document.getElementById('recoverResult');
+
+                if (!teamName || !email) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `<p class="recover-error">⚠️ Please fill in both fields.</p>`;
+                    return;
+                }
+
+                const btn = document.getElementById('recoverBtn');
+                btn.innerText = 'Recovering...';
+                btn.style.opacity = '0.7';
+                btn.disabled = true;
+
+                try {
+                    const url = SCRIPT_URL + '?action=recoverTeamId&teamName=' + encodeURIComponent(teamName) + '&email=' + encodeURIComponent(email);
+                    const response = await fetch(url, { redirect: 'follow' });
+                    const result = await response.json();
+
+                    resultDiv.style.display = 'block';
+
+                    if (result.status === 'success') {
+                        resultDiv.innerHTML = `
+                            <p class="recover-success">✅ Team found!</p>
+                            <div class="recover-id-box" id="recoveredIdBox" title="Click to copy">${result.teamId}</div>
+                            <button id="copyRecoveredId" class="recover-copy-btn">📋 Copy</button>
+                        `;
+                        document.getElementById('copyRecoveredId').addEventListener('click', () => {
+                            navigator.clipboard.writeText(result.teamId).then(() => {
+                                document.getElementById('copyRecoveredId').innerText = '✅ Copied!';
+                                setTimeout(() => { document.getElementById('copyRecoveredId').innerText = '📋 Copy'; }, 2000);
+                            });
+                        });
+                    } else {
+                        resultDiv.innerHTML = `<p class="recover-error">❌ ${result.message}</p>`;
+                    }
+                } catch (err) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `<p class="recover-error">❌ Network error — please try again.</p>`;
+                    console.error('Recovery error:', err);
+                } finally {
+                    btn.innerText = 'Recover Team ID';
+                    btn.style.opacity = '1';
+                    btn.disabled = false;
+                }
+            });
+
+            // Close buttons
+            const closeModal = () => overlay.remove();
+            document.getElementById('closeRecoverBtn').addEventListener('click', closeModal);
+            document.getElementById('closeRecoverTop').addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+        }
     </script>
 
 </body>

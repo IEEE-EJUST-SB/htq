@@ -28,10 +28,69 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  // Handle Team ID recovery
+  if (e && e.parameter && e.parameter.action === 'recoverTeamId') {
+    return handleRecoverTeamId(e.parameter);
+  }
+
   return ContentService
     .createTextOutput(JSON.stringify({
       status: "ok",
       message: "HTQ API is running."
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ==============================
+//  TEAM ID RECOVERY HANDLER
+// ==============================
+function handleRecoverTeamId(params) {
+  var teamName = (params.teamName || "").trim().toLowerCase();
+  var email = (params.email || "").trim().toLowerCase();
+
+  if (!teamName || !email) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Team name and email are required."
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Registrations");
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: "error",
+        message: "No registrations found."
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Columns: B=Team ID, C=Team Name, E=Email
+  var data = sheet.getRange("B2:E" + sheet.getLastRow()).getValues();
+
+  for (var i = 0; i < data.length; i++) {
+    var rowTeamId   = data[i][0]; // Column B
+    var rowTeamName = (data[i][1] || "").toString().trim().toLowerCase(); // Column C
+    var rowEmail    = (data[i][3] || "").toString().trim().toLowerCase(); // Column E
+
+    if (rowTeamName === teamName && rowEmail === email) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: "success",
+          teamId: rowTeamId
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      status: "error",
+      message: "No matching team found. Please check your team name and email."
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }

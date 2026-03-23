@@ -727,6 +727,157 @@ footer p {
   box-shadow: 0 0 30px rgba(0, 180, 255, 0.5);
 }
 
+/* ===== Forgot Team ID ===== */
+.forgot-team-id-text {
+  text-align: center;
+  margin-top: 1.25rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.forgot-team-id-text a {
+  color: var(--neon);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+
+.forgot-team-id-text a:hover {
+  color: var(--neon-bright);
+  text-shadow: 0 0 12px rgba(0, 180, 255, 0.5);
+}
+
+/* ===== Recover Modal ===== */
+.recover-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 5, 16, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.recover-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3rem;
+  max-width: 480px;
+  width: 90%;
+  position: relative;
+  animation: scaleIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.recover-modal .back-link {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+}
+
+.recover-modal-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-top: 1rem;
+}
+
+.recover-modal-header h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2rem;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.recover-modal-header p {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.recover-result {
+  display: none;
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.recover-success {
+  color: #10b981;
+  font-size: 0.85rem;
+  font-family: 'DM Mono', monospace;
+  margin: 0 0 10px;
+}
+
+.recover-error {
+  color: #ff4060;
+  font-size: 0.85rem;
+  font-family: 'DM Mono', monospace;
+  margin: 0;
+}
+
+.recover-id-box {
+  background: var(--neon-glow);
+  border: 2px dashed var(--neon);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--neon-bright);
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  user-select: all;
+  text-align: center;
+  text-shadow: 0 0 16px rgba(0, 180, 255, 0.4);
+}
+
+.recover-copy-btn {
+  margin-top: 0.75rem;
+  background: var(--neon);
+  color: var(--bg);
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: var(--radius);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 14px rgba(0, 180, 255, 0.3);
+}
+
+.recover-copy-btn:hover {
+  transform: translateY(-1px);
+  background: var(--neon-bright);
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.5);
+}
+
+.recover-close-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.7rem;
+  border-radius: var(--radius);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.recover-close-btn:hover {
+  color: var(--neon);
+  border-color: var(--neon-dim);
+  box-shadow: 0 0 10px rgba(0, 180, 255, 0.15);
+}
+
 /* ===== Hamburger Button ===== */
 .hamburger {
   display: flex;
