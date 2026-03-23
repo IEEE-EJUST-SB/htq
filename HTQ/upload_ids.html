@@ -73,7 +73,7 @@
         // ⚠️  PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW
         //     (This should be a SEPARATE deployment from the registration script)
         // =============================================
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8K3E5ChumpgLaOIXxgNzuOnRhn6NsqaabWUd95pwmc3vh9pkuPekbPcTH8a8zhj8/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5G3d_2SFmNmxOhBN2K_2RxXcV3mQIagezsSebpmZMHIc8WKExcfehQrLkwCcH-IY/exec';
 
         const teamSizeSelect = document.getElementById('teamSize');
         const memberFields = document.getElementById('memberFields');
@@ -179,11 +179,36 @@
             }
         }
 
-        // --- Convert file to base64 ---
-        function fileToBase64(file) {
+        // --- Compress image before upload (keeps payload small) ---
+        function compressImage(file, maxWidth = 800, quality = 0.5) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
+                reader.onload = function (e) {
+                    const img = new Image();
+                    img.onload = function () {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        // Scale down if needed
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Convert to compressed JPEG
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        console.log('Compressed image size:', Math.round(dataUrl.length / 1024), 'KB');
+                        resolve(dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
@@ -240,8 +265,8 @@
             btn.disabled = true;
 
             try {
-                // Convert receipt image to base64
-                const paymentBase64 = await fileToBase64(paymentInput.files[0]);
+                // Compress the receipt image before sending
+                const paymentBase64 = await compressImage(paymentInput.files[0]);
 
                 const formData = {
                     teamId: teamIdField.value.trim().toUpperCase(),
@@ -250,12 +275,29 @@
                     paymentReceipt: paymentBase64,
                 };
 
-                await fetch(SCRIPT_URL, {
+                console.log('Sending to:', SCRIPT_URL);
+                console.log('Payload size:', Math.round(JSON.stringify(formData).length / 1024), 'KB');
+
+                const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
+                    redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(formData),
                 });
+
+                console.log('Response status:', response.status);
+
+                // Try to read the response (won't work with no-cors, but will with redirect:follow)
+                try {
+                    const result = await response.json();
+                    console.log('Server response:', result);
+                    if (result.status === 'error') {
+                        showToast('❌ ' + result.message, 'error');
+                        return;
+                    }
+                } catch (parseErr) {
+                    console.log('Could not parse response (this is normal for cross-origin)');
+                }
 
                 showToast('🎉 IDs & receipt uploaded successfully!', 'success');
 
